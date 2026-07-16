@@ -90,7 +90,8 @@ jobs:
         run: |
           mkdir -p dist
           cp target/release/lmu2motec dist/
-          cp README.md LICENSE dist/
+          cp README.md LICENSE THIRD_PARTY_LICENSES.md dist/
+          cp -R licenses dist/
           tar -czf "${{ matrix.archive }}" -C dist .
 
       - name: Package Windows
@@ -99,7 +100,8 @@ jobs:
         run: |
           New-Item -ItemType Directory -Path dist
           Copy-Item target\release\lmu2motec.exe dist\
-          Copy-Item README.md, LICENSE dist\
+          Copy-Item README.md, LICENSE, THIRD_PARTY_LICENSES.md dist\
+          Copy-Item licenses dist\licenses -Recurse
           Compress-Archive -Path dist\* -DestinationPath "${{ matrix.archive }}"
 
       - name: Upload binary

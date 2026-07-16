@@ -13,6 +13,8 @@ Download the latest executable for your operating system from the
 [GitHub Releases](../../releases) page.
 
 No command-line interface or development environment is required.
+The corresponding source code for each executable is available from the
+source archives attached automatically to the same tagged release.
 
 ## How to use
 
@@ -46,3 +48,18 @@ Use time mode when viewing the current per-lap exports.
 - Invalidated LMU laps are currently exported like other completed laps.
 - All supported telemetry channels are exported automatically.
 - The application remembers the last selected source and output folders.
+
+## Licenses
+
+`lmu2motec` is free software released under the
+[GNU General Public License version 3 only](LICENSE).
+
+Copyright (C) 2026 Enzo CORSICO.
+
+You may use, study, modify, and redistribute the application under the terms
+of that license. Distributed modified versions must remain under GPLv3 and
+provide their corresponding source code. The application is provided without
+any warranty, to the extent permitted by law.
+
+Third-party license information for Slint and DuckDB is available in
+[THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
