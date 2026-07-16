@@ -1,0 +1,120 @@
+import { Button, CheckBox, ScrollView } from "std-widgets.slint";
+import { TelemetryFile } from "../models.slint";
+
+export component TelemetryFileList inherits Rectangle {
+    in property <[TelemetryFile]> files;
+    in property <int> selected-count: 0;
+    in property <bool> busy: false;
+
+    callback select-all(bool);
+    callback toggle-file(int, bool);
+    callback refresh();
+
+    vertical-stretch: 1;
+    border-radius: 8px;
+    background: #18232e;
+    border-width: 1px;
+    border-color: #293847;
+
+    VerticalLayout {
+        padding: 12px;
+        spacing: 8px;
+
+        HorizontalLayout {
+            height: 34px;
+            spacing: 8px;
+
+            Text {
+                text: root.files.length + " file(s) found · "
+                    + root.selected-count + " selected";
+                color: #e1e8ee;
+                vertical-alignment: center;
+            }
+
+            Rectangle { horizontal-stretch: 1; }
+
+            Button {
+                text: "Refresh";
+                enabled: !root.busy;
+                clicked => { root.refresh(); }
+            }
+
+            Button {
+                text: "Select all";
+                enabled: !root.busy && root.files.length > 0;
+                clicked => { root.select-all(true); }
+            }
+
+            Button {
+                text: "Deselect all";
+                enabled: !root.busy && root.files.length > 0;
+                clicked => { root.select-all(false); }
+            }
+        }
+
+        Rectangle {
+            height: 1px;
+            background: #293847;
+        }
+
+        ScrollView {
+            vertical-stretch: 1;
+
+            VerticalLayout {
+                spacing: 4px;
+
+                for file[index] in root.files: Rectangle {
+                    height: 54px;
+                    border-radius: 5px;
+                    background: Math.mod(index, 2) == 0 ? #141e28 : #17222c;
+
+                    HorizontalLayout {
+                        padding-left: 9px;
+                        padding-right: 9px;
+                        spacing: 10px;
+
+                        CheckBox {
+                            width: 30px;
+                            checked: file.selected;
+                            enabled: !root.busy;
+                            toggled => {
+                                root.toggle-file(index, self.checked);
+                            }
+                        }
+
+                        VerticalLayout {
+                            spacing: 2px;
+
+                            Text {
+                                text: file.name;
+                                color: #edf2f6;
+                                font-size: 14px;
+                                vertical-alignment: bottom;
+                                overflow: elide;
+                            }
+
+                            Text {
+                                text: file.path;
+                                color: #71879a;
+                                font-size: 11px;
+                                vertical-alignment: top;
+                                overflow: elide;
+                            }
+                        }
+
+                        Text {
+                            width: 170px;
+                            text: file.status;
+                            color: file.completed ? #62d49a
+                                : file.failed ? #ff7d7d
+                                : #8fbbe8;
+                            horizontal-alignment: right;
+                            vertical-alignment: center;
+                            overflow: elide;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
