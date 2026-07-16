@@ -594,9 +594,11 @@ mod tests {
 
     #[test]
     fn output_status_uses_only_folder_and_file_names() {
-        let path = Path::new(r"C:\Exports\session_123\Le_Mans_lap_4.ld");
+        let path = Path::new("Exports")
+            .join("session_123")
+            .join("Le_Mans_lap_4.ld");
 
-        assert_eq!(short_output_path(path), "session_123 / Le_Mans_lap_4.ld");
+        assert_eq!(short_output_path(&path), "session_123 / Le_Mans_lap_4.ld");
     }
 
     #[test]
