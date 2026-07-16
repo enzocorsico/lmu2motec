@@ -1,0 +1,54 @@
+import { Button, LineEdit } from "std-widgets.slint";
+
+export component OutputFolderSelector inherits Rectangle {
+    in-out property <string> folder;
+    in property <bool> busy: false;
+
+    callback browse();
+    callback open-folder();
+    callback folder-edited();
+
+    height: 96px;
+    border-radius: 8px;
+    background: #18232e;
+    border-width: 1px;
+    border-color: #293847;
+
+    VerticalLayout {
+        padding: 12px;
+        spacing: 7px;
+
+        Text {
+            text: "Output folder";
+            color: #b8c6d3;
+            font-size: 13px;
+        }
+
+        HorizontalLayout {
+            spacing: 8px;
+
+            output-input := LineEdit {
+                text <=> root.folder;
+                placeholder-text: "Output folder path";
+                enabled: !root.busy;
+                changed has-focus => {
+                    if (!self.has-focus) {
+                        root.folder-edited();
+                    }
+                }
+            }
+
+            Button {
+                text: "Browse…";
+                enabled: !root.busy;
+                clicked => { root.browse(); }
+            }
+
+            Button {
+                text: "Open folder";
+                enabled: !root.busy && root.folder != "";
+                clicked => { root.open-folder(); }
+            }
+        }
+    }
+}

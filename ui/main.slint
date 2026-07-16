@@ -1,0 +1,135 @@
+import { Button, Spinner } from "std-widgets.slint";
+import { TelemetryFile } from "models.slint";
+import { SourceFolderSelector } from "components/source-folder-selector.slint";
+import { TelemetryFileList } from "components/telemetry-file-list.slint";
+import { OutputFolderSelector } from "components/output-folder-selector.slint";
+
+export component MainWindow inherits Window {
+    title: "LMU to MoTeC";
+    preferred-width: 1100px;
+    preferred-height: 680px;
+    min-width: 720px;
+    min-height: 520px;
+    background: #111820;
+
+    in-out property <string> source-folder;
+    in-out property <string> output-folder;
+    in property <[TelemetryFile]> files;
+    in property <string> status-text: "Choose a folder containing DuckDB files.";
+    in property <bool> busy: false;
+    in property <int> selected-count: 0;
+    in property <int> progress-value: 0;
+    in property <int> progress-max: 0;
+
+    callback browse-source();
+    callback browse-output();
+    callback open-output-folder();
+    callback save-settings();
+    callback refresh-files();
+    callback select-all(bool);
+    callback toggle-file(int, bool);
+    callback convert-selected();
+    callback stop-conversion();
+
+    background-focus := FocusScope {
+        width: parent.width;
+        height: parent.height;
+        focus-on-click: true;
+    }
+
+    VerticalLayout {
+        padding: 24px;
+        spacing: 14px;
+
+        Text {
+            text: "LMU → MoTeC";
+            color: #f2f6fa;
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        Text {
+            text: "Convert your DuckDB telemetry files to MoTeC LD files.";
+            color: #91a3b5;
+            font-size: 14px;
+        }
+
+        SourceFolderSelector {
+            folder <=> root.source-folder;
+            busy: root.busy;
+            browse => { root.browse-source(); }
+            refresh => { root.refresh-files(); }
+            folder-edited => { root.refresh-files(); }
+        }
+
+        TelemetryFileList {
+            vertical-stretch: 1;
+            files: root.files;
+            selected-count: root.selected-count;
+            busy: root.busy;
+            refresh => { root.refresh-files(); }
+            select-all(selected) => { root.select-all(selected); }
+            toggle-file(index, selected) => { root.toggle-file(index, selected); }
+        }
+
+        OutputFolderSelector {
+            folder <=> root.output-folder;
+            busy: root.busy;
+            browse => { root.browse-output(); }
+            open-folder => { root.open-output-folder(); }
+            folder-edited => { root.save-settings(); }
+        }
+
+        HorizontalLayout {
+            height: 44px;
+            spacing: 12px;
+
+            VerticalLayout {
+                spacing: 4px;
+
+                Text {
+                    text: root.status-text;
+                    color: #9badbd;
+                    font-size: 12px;
+                    overflow: elide;
+                }
+
+                Rectangle {
+                    height: 5px;
+                    border-radius: 3px;
+                    background: #273542;
+
+                    Rectangle {
+                        x: 0px;
+                        height: parent.height;
+                        border-radius: 3px;
+                        background: #48a6e8;
+                        width: root.progress-max > 0
+                            ? parent.width * root.progress-value / root.progress-max
+                            : 0px;
+                    }
+                }
+            }
+
+            Spinner {
+                width: 28px;
+                height: 28px;
+                visible: root.busy;
+            }
+
+            Button {
+                width: 190px;
+                text: root.busy ? "Stop" : "Convert selected";
+                enabled: root.busy || (root.selected-count > 0
+                    && root.output-folder != "");
+                clicked => {
+                    if (root.busy) {
+                        root.stop-conversion();
+                    } else {
+                        root.convert-selected();
+                    }
+                }
+            }
+        }
+    }
+}

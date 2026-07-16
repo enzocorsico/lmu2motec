@@ -1,0 +1,31 @@
+[package]
+name = "lmu2motec"
+version = "0.1.0"
+edition = "2024"
+description = "Convert Le Mans Ultimate DuckDB telemetry exports to MoTeC LD files"
+license = "GPL-3.0-only"
+build = "build.rs"
+
+[dependencies]
+anyhow = "1.0"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+duckdb = { version = "1.5.0", features = ["bundled"] }
+rfd = "0.17"
+serde = { version = "1.0", features = ["derive"] }
+slint = "1.17"
+toml = "1.1"
+
+[build-dependencies]
+slint-build = "1.17"
+
+[dev-dependencies]
+tempfile = "3.20"
+
+[profile.release]
+lto = "thin"
+strip = true
+
+[profile.ci]
+inherits = "dev"
+debug = 0
+incremental = false

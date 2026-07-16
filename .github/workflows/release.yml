@@ -1,0 +1,141 @@
+name: Create release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+
+jobs:
+  validate-version:
+    name: Validate release version
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Match tag with Cargo version
+        run: |
+          if [[ ! "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Tag must use the vMAJOR.MINOR.PATCH format."
+            exit 1
+          fi
+
+          cargo_version="$(sed -nE 's/^version = "([^"]+)"/\1/p' Cargo.toml | head -n 1)"
+          if [[ "v$cargo_version" != "$GITHUB_REF_NAME" ]]; then
+            echo "Tag $GITHUB_REF_NAME does not match Cargo.toml version v$cargo_version."
+            exit 1
+          fi
+
+  build:
+    name: Build ${{ matrix.name }}
+    needs: validate-version
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux x86_64
+            runner: ubuntu-latest
+            platform: linux-x86_64
+            archive: lmu2motec-linux-x86_64.tar.gz
+          - name: Windows x86_64
+            runner: windows-latest
+            platform: windows-x86_64
+            archive: lmu2motec-windows-x86_64.zip
+          - name: macOS Intel
+            runner: macos-15-intel
+            platform: macos-x86_64
+            archive: lmu2motec-macos-x86_64.tar.gz
+          - name: macOS Apple Silicon
+            runner: macos-15
+            platform: macos-aarch64
+            archive: lmu2motec-macos-aarch64.tar.gz
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes \
+            build-essential \
+            libfontconfig1-dev \
+            libgbm-dev \
+            libinput-dev \
+            libx11-dev \
+            libx11-xcb1 \
+            libxcb1-dev \
+            libxkbcommon-dev \
+            libxkbcommon0
+
+      - name: Install Rust
+        run: rustup toolchain install stable --profile minimal
+
+      - name: Use stable Rust
+        run: rustup default stable
+
+      - name: Build release
+        run: cargo build --release --locked
+
+      - name: Package Linux or macOS
+        if: runner.os != 'Windows'
+        run: |
+          mkdir -p dist
+          cp target/release/lmu2motec dist/
+          cp README.md LICENSE THIRD_PARTY_LICENSES.md dist/
+          cp -R licenses dist/
+          tar -czf "${{ matrix.archive }}" -C dist .
+
+      - name: Package Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path dist
+          Copy-Item target\release\lmu2motec.exe dist\
+          Copy-Item README.md, LICENSE, THIRD_PARTY_LICENSES.md dist\
+          Copy-Item licenses dist\licenses -Recurse
+          Compress-Archive -Path dist\* -DestinationPath "${{ matrix.archive }}"
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-${{ matrix.platform }}
+          path: ${{ matrix.archive }}
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: Publish GitHub release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download binaries
+        uses: actions/download-artifact@v7
+        with:
+          pattern: release-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          TITLE: lmu2motec ${{ github.ref_name }}
+        run: >
+          gh release create "$TAG"
+          release-assets/*
+          --target "$GITHUB_SHA"
+          --title "$TITLE"
+          --generate-notes
+          --latest
