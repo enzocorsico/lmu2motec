@@ -55,10 +55,10 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Run Clippy
-        run: cargo clippy --locked --all-targets -- -D warnings
+        run: cargo clippy --profile ci --locked --all-targets -- -D warnings
 
       - name: Run tests
-        run: cargo test --locked
+        run: cargo test --profile ci --locked
 
-      - name: Build release
-        run: cargo build --release --locked
+      - name: Build project
+        run: cargo build --profile ci --locked
