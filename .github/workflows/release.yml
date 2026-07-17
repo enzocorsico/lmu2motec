@@ -132,7 +132,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           TAG: ${{ github.ref_name }}
-          TITLE: lmu2motec ${{ github.ref_name }}
+          TITLE: ${{ github.ref_name }}
         run: >
           gh release create "$TAG"
           release-assets/*
