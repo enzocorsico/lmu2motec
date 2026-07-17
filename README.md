@@ -29,6 +29,10 @@ Each recording gets its own subfolder in the selected output folder. Depending
 on the selected mode, it contains one `.ld` file per lap, a single `.ld` file
 with all completed laps, or only the requested lap.
 
+Combined exports also include a small matching `.ldx` sidecar containing the
+lap beacons used by MoTeC i2 to split the single telemetry file into laps. Keep
+the `.ld` and `.ldx` files together when moving or sharing a combined export.
+
 You can stop a conversion at any time. The current `.ld` file will be completed
 before the remaining laps are skipped.
 

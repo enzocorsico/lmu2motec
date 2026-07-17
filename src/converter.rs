@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result, bail};
 
 use crate::lmu::LmuDatabase;
-use crate::motec::{LdMetadata, LdWriter, validate_ld_file};
+use crate::motec::{LdMetadata, LdWriter, validate_ld_file, write_lap_markers};
 use crate::telemetry::{EventSampling, build_lap_session};
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -54,6 +54,7 @@ pub fn convert_file_with_progress(
 
     let database = LmuDatabase::open(input)?;
     let overview = database.overview()?;
+    let venue_length_mm = database.estimate_venue_length_mm(&overview)?;
     let event_sampling = EventSampling {
         frequency: options.event_frequency,
     };
@@ -117,8 +118,10 @@ pub fn convert_file_with_progress(
             complete: last.complete,
         };
         let session = build_lap_session(&database, &overview, &combined_lap, event_sampling)?;
-        let metadata = LdMetadata::from_lmu_laps(&overview.metadata, first.number, last.number);
+        let mut metadata = LdMetadata::from_lmu_laps(&overview.metadata, first.number, last.number);
+        metadata.venue_length_mm = venue_length_mm;
         write_ld_safely(&destination, &metadata, &session.channels, options.validate)?;
+        write_lap_markers(&destination, &laps)?;
         return Ok(ConversionSummary {
             generated_count: 1,
             exported_lap_count,
@@ -142,7 +145,8 @@ pub fn convert_file_with_progress(
         };
         on_file_started(&destination);
         let session = build_lap_session(&database, &overview, &lap, event_sampling)?;
-        let metadata = LdMetadata::from_lmu(&overview.metadata, lap.number);
+        let mut metadata = LdMetadata::from_lmu(&overview.metadata, lap.number);
+        metadata.venue_length_mm = venue_length_mm;
         write_ld_safely(&destination, &metadata, &session.channels, options.validate)?;
         generated_count += 1;
 
@@ -248,6 +252,7 @@ mod tests {
             driver: String::new(),
             vehicle: String::new(),
             venue: String::new(),
+            venue_length_mm: None,
             short_comment: String::new(),
             event_name: String::new(),
             event_session: String::new(),
