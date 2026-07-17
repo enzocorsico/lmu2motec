@@ -42,7 +42,7 @@ fn main() -> Result<()> {
     ui.set_export_mode(
         settings
             .as_ref()
-            .map_or(0, |settings| settings.export_mode.clamp(0, 2)),
+            .map_or(1, |settings| settings.export_mode.clamp(0, 2)),
     );
     ui.set_requested_lap(
         settings
@@ -74,13 +74,17 @@ fn main() -> Result<()> {
 struct AppSettings {
     source_folder: PathBuf,
     output_folder: PathBuf,
-    #[serde(default)]
+    #[serde(default = "default_export_mode")]
     export_mode: i32,
     #[serde(default = "default_requested_lap")]
     requested_lap: i32,
 }
 
 fn default_requested_lap() -> i32 {
+    1
+}
+
+fn default_export_mode() -> i32 {
     1
 }
 
@@ -109,7 +113,7 @@ fn load_legacy_settings(path: &Path) -> Option<AppSettings> {
     Some(AppSettings {
         source_folder,
         output_folder,
-        export_mode: 0,
+        export_mode: 1,
         requested_lap: 1,
     })
 }
@@ -626,7 +630,7 @@ mod tests {
 
         assert_eq!(loaded.source_folder, PathBuf::from(r"C:\Telemetry LMU"));
         assert_eq!(loaded.output_folder, PathBuf::from(r"D:\Exports MoTeC"));
-        assert_eq!(loaded.export_mode, 0);
+        assert_eq!(loaded.export_mode, 1);
         assert_eq!(loaded.requested_lap, 1);
         assert!(toml_path.is_file());
     }
@@ -643,7 +647,7 @@ mod tests {
 
         let loaded = load_settings(&path).unwrap();
 
-        assert_eq!(loaded.export_mode, 0);
+        assert_eq!(loaded.export_mode, 1);
         assert_eq!(loaded.requested_lap, 1);
     }
 

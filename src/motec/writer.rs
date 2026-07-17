@@ -16,6 +16,7 @@ pub struct LdMetadata {
     pub driver: String,
     pub vehicle: String,
     pub venue: String,
+    pub venue_length_mm: Option<u32>,
     pub short_comment: String,
     pub event_name: String,
     pub event_session: String,
@@ -40,6 +41,7 @@ impl LdMetadata {
             driver: metadata.driver_name(),
             vehicle: metadata.car_name(),
             venue: metadata.track_name(),
+            venue_length_mm: None,
             short_comment: format!("LMU {lap_label} converted by lmu2motec"),
             event_name: metadata.track_name(),
             event_session: metadata.session_type(),
@@ -202,7 +204,9 @@ fn write_venue(
 ) -> Result<()> {
     writer.seek(SeekFrom::Start(u64::from(HEADER_SIZE + EVENT_SIZE)))?;
     write_fixed(writer, &metadata.venue, 64)?;
-    write_zeros(writer, 1034)?;
+    write_zeros(writer, VENUE_LENGTH_OFFSET as usize - 64)?;
+    write_u32(writer, metadata.venue_length_mm.unwrap_or_default())?;
+    write_zeros(writer, 1028)?;
     write_u16(
         writer,
         u16::try_from(vehicle_pointer).context("vehicle pointer exceeds LD limit")?,
@@ -325,6 +329,7 @@ mod tests {
             driver: "Driver".to_owned(),
             vehicle: "Car".to_owned(),
             venue: "Track".to_owned(),
+            venue_length_mm: Some(4_629_773),
             short_comment: "Test".to_owned(),
             event_name: "Event".to_owned(),
             event_session: "Practice".to_owned(),
@@ -351,5 +356,12 @@ mod tests {
 
         LdWriter::write(&destination, &metadata, &channels).unwrap();
         validate_ld_file(&destination).unwrap();
+
+        let bytes = std::fs::read(destination).unwrap();
+        let offset = usize::try_from(HEADER_SIZE + EVENT_SIZE + VENUE_LENGTH_OFFSET).unwrap();
+        assert_eq!(
+            u32::from_le_bytes(bytes[offset..offset + 4].try_into().unwrap()),
+            4_629_773
+        );
     }
 }

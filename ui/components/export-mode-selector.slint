@@ -1,7 +1,7 @@
 import { ComboBox, SpinBox } from "std-widgets.slint";
 
 export component ExportModeSelector inherits HorizontalLayout {
-    in-out property <int> mode: 0;
+    in-out property <int> mode: 1;
     in-out property <int> requested-lap: 1;
     in property <bool> busy: false;
 
@@ -15,11 +15,16 @@ export component ExportModeSelector inherits HorizontalLayout {
         vertical-alignment: center;
     }
 
-    ComboBox {
+    mode-picker := ComboBox {
         width: 260px;
-        model: ["One file per lap", "All laps in one file", "A specific lap"];
-        current-index <=> root.mode;
+        model: ["All laps in one file", "One file per lap", "A specific lap"];
+        current-index: root.mode == 1 ? 0 : root.mode == 0 ? 1 : 2;
         enabled: !root.busy;
+        selected(value) => {
+            root.mode = self.current-index == 0 ? 1
+                : self.current-index == 1 ? 0
+                : 2;
+        }
     }
 
     Text {
