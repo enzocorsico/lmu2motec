@@ -1,5 +1,7 @@
-import { Button, Spinner } from "std-widgets.slint";
 import { TelemetryFile } from "models.slint";
+import { AppHeader } from "components/app-header.slint";
+import { ConversionStatusBar } from "components/conversion-status-bar.slint";
+import { ExportModeSelector } from "components/export-mode-selector.slint";
 import { SourceFolderSelector } from "components/source-folder-selector.slint";
 import { TelemetryFileList } from "components/telemetry-file-list.slint";
 import { OutputFolderSelector } from "components/output-folder-selector.slint";
@@ -20,6 +22,8 @@ export component MainWindow inherits Window {
     in property <int> selected-count: 0;
     in property <int> progress-value: 0;
     in property <int> progress-max: 0;
+    in-out property <int> export-mode: 0;
+    in-out property <int> requested-lap: 1;
 
     callback browse-source();
     callback browse-output();
@@ -41,18 +45,7 @@ export component MainWindow inherits Window {
         padding: 24px;
         spacing: 14px;
 
-        Text {
-            text: "LMU → MoTeC";
-            color: #f2f6fa;
-            font-size: 28px;
-            font-weight: 700;
-        }
-
-        Text {
-            text: "Convert your DuckDB telemetry files to MoTeC LD files.";
-            color: #91a3b5;
-            font-size: 14px;
-        }
+        AppHeader {}
 
         SourceFolderSelector {
             folder <=> root.source-folder;
@@ -80,56 +73,20 @@ export component MainWindow inherits Window {
             folder-edited => { root.save-settings(); }
         }
 
-        HorizontalLayout {
-            height: 44px;
-            spacing: 12px;
+        ExportModeSelector {
+            mode <=> root.export-mode;
+            requested-lap <=> root.requested-lap;
+            busy: root.busy;
+        }
 
-            VerticalLayout {
-                spacing: 4px;
-
-                Text {
-                    text: root.status-text;
-                    color: #9badbd;
-                    font-size: 12px;
-                    overflow: elide;
-                }
-
-                Rectangle {
-                    height: 5px;
-                    border-radius: 3px;
-                    background: #273542;
-
-                    Rectangle {
-                        x: 0px;
-                        height: parent.height;
-                        border-radius: 3px;
-                        background: #48a6e8;
-                        width: root.progress-max > 0
-                            ? parent.width * root.progress-value / root.progress-max
-                            : 0px;
-                    }
-                }
-            }
-
-            Spinner {
-                width: 28px;
-                height: 28px;
-                visible: root.busy;
-            }
-
-            Button {
-                width: 190px;
-                text: root.busy ? "Stop" : "Convert selected";
-                enabled: root.busy || (root.selected-count > 0
-                    && root.output-folder != "");
-                clicked => {
-                    if (root.busy) {
-                        root.stop-conversion();
-                    } else {
-                        root.convert-selected();
-                    }
-                }
-            }
+        ConversionStatusBar {
+            status-text: root.status-text;
+            busy: root.busy;
+            can-convert: root.selected-count > 0 && root.output-folder != "";
+            progress-value: root.progress-value;
+            progress-max: root.progress-max;
+            convert => { root.convert-selected(); }
+            stop => { root.stop-conversion(); }
         }
     }
 }
