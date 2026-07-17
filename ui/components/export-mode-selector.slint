@@ -1,0 +1,38 @@
+import { ComboBox, SpinBox } from "std-widgets.slint";
+
+export component ExportModeSelector inherits HorizontalLayout {
+    in-out property <int> mode: 0;
+    in-out property <int> requested-lap: 1;
+    in property <bool> busy: false;
+
+    height: 36px;
+    spacing: 12px;
+
+    Text {
+        width: 120px;
+        text: "Export mode";
+        color: #d8e2eb;
+        vertical-alignment: center;
+    }
+
+    ComboBox {
+        width: 260px;
+        model: ["One file per lap", "All laps in one file", "A specific lap"];
+        current-index <=> root.mode;
+        enabled: !root.busy;
+    }
+
+    Text {
+        text: "Lap number";
+        color: root.mode == 2 ? #d8e2eb : #637586;
+        vertical-alignment: center;
+    }
+
+    SpinBox {
+        width: 110px;
+        minimum: 1;
+        maximum: 9999;
+        value <=> root.requested-lap;
+        enabled: !root.busy && root.mode == 2;
+    }
+}

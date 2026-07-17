@@ -26,19 +26,28 @@ pub struct LdMetadata {
 
 impl LdMetadata {
     pub fn from_lmu(metadata: &LmuMetadata, lap_number: u16) -> Self {
+        Self::from_lmu_laps(metadata, lap_number, lap_number)
+    }
+
+    pub fn from_lmu_laps(metadata: &LmuMetadata, first_lap: u16, last_lap: u16) -> Self {
+        let lap_label = if first_lap == last_lap {
+            format!("lap {first_lap}")
+        } else {
+            format!("laps {first_lap}-{last_lap}")
+        };
         Self {
             timestamp: parse_recording_time(metadata.recording_time()).unwrap_or_else(Utc::now),
             driver: metadata.driver_name(),
             vehicle: metadata.car_name(),
             venue: metadata.track_name(),
-            short_comment: format!("LMU lap {lap_number} converted by lmu2motec"),
+            short_comment: format!("LMU {lap_label} converted by lmu2motec"),
             event_name: metadata.track_name(),
             event_session: metadata.session_type(),
             event_comment: format!(
-                "{} - {} - LMU lap {}",
+                "{} - {} - LMU {}",
                 metadata.track_layout(),
                 metadata.car_name(),
-                lap_number
+                lap_label
             ),
             vehicle_id: metadata.car_name(),
             vehicle_type: metadata.car_class(),

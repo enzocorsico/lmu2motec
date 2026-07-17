@@ -3,9 +3,9 @@
 `lmu2motec` converts Le Mans Ultimate telemetry recordings (`.duckdb`) into
 MoTeC Logged Data files (`.ld`) that can be opened in MoTeC i2.
 
-The application provides a simple graphical interface and exports one MoTeC
-file per completed lap. All supported telemetry channels are included
-automatically.
+The application provides a simple graphical interface and can export one MoTeC
+file per completed lap, all completed laps in one file, or one specific lap.
+All supported telemetry channels are included automatically.
 
 ## Download
 
@@ -22,10 +22,12 @@ source archives attached automatically to the same tagged release.
 2. Select the folder containing your LMU `.duckdb` telemetry files.
 3. Select one or more recordings from the list.
 4. Choose an output folder.
-5. Click **Convert selected**.
+5. Choose an export mode and, when needed, a lap number.
+6. Click **Convert selected**.
 
-Each recording gets its own subfolder in the selected output folder. One `.ld`
-file is generated for every completed lap.
+Each recording gets its own subfolder in the selected output folder. Depending
+on the selected mode, it contains one `.ld` file per lap, a single `.ld` file
+with all completed laps, or only the requested lap.
 
 You can stop a conversion at any time. The current `.ld` file will be completed
 before the remaining laps are skipped.

@@ -1,3 +1,5 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -10,7 +12,7 @@ use std::time::SystemTime;
 
 use anyhow::{Context, Result};
 use chrono::{NaiveDate, NaiveTime};
-use lmu2motec::converter::{ConvertOptions, convert_file_with_progress};
+use lmu2motec::converter::{ConvertOptions, ExportMode, convert_file_with_progress};
 use rfd::FileDialog;
 use serde::{Deserialize, Serialize};
 use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
@@ -31,11 +33,22 @@ fn main() -> Result<()> {
         .filter(|folder| folder.is_dir())
         .unwrap_or_else(|| current.clone());
     let output_folder = settings
-        .map(|settings| settings.output_folder)
+        .as_ref()
+        .map(|settings| settings.output_folder.clone())
         .filter(|folder| !folder.as_os_str().is_empty())
         .unwrap_or_else(|| current.join("output"));
     ui.set_source_folder(source_folder.display().to_string().into());
     ui.set_output_folder(output_folder.display().to_string().into());
+    ui.set_export_mode(
+        settings
+            .as_ref()
+            .map_or(0, |settings| settings.export_mode.clamp(0, 2)),
+    );
+    ui.set_requested_lap(
+        settings
+            .as_ref()
+            .map_or(1, |settings| settings.requested_lap.max(1)),
+    );
 
     wire_browse_source(&ui, files.clone(), settings_path.clone());
     wire_browse_output(&ui, settings_path.clone());
@@ -50,6 +63,8 @@ fn main() -> Result<()> {
     let settings = AppSettings {
         source_folder: PathBuf::from(ui.get_source_folder().as_str()),
         output_folder: PathBuf::from(ui.get_output_folder().as_str()),
+        export_mode: ui.get_export_mode(),
+        requested_lap: ui.get_requested_lap(),
     };
     save_settings(&settings_path, &settings)?;
     Ok(())
@@ -59,6 +74,14 @@ fn main() -> Result<()> {
 struct AppSettings {
     source_folder: PathBuf,
     output_folder: PathBuf,
+    #[serde(default)]
+    export_mode: i32,
+    #[serde(default = "default_requested_lap")]
+    requested_lap: i32,
+}
+
+fn default_requested_lap() -> i32 {
+    1
 }
 
 fn settings_path(current: &Path) -> PathBuf {
@@ -86,6 +109,8 @@ fn load_legacy_settings(path: &Path) -> Option<AppSettings> {
     Some(AppSettings {
         source_folder,
         output_folder,
+        export_mode: 0,
+        requested_lap: 1,
     })
 }
 
@@ -102,6 +127,8 @@ fn save_current_settings(ui: &MainWindow, path: &Path) {
     let settings = AppSettings {
         source_folder: PathBuf::from(ui.get_source_folder().as_str()),
         output_folder: PathBuf::from(ui.get_output_folder().as_str()),
+        export_mode: ui.get_export_mode(),
+        requested_lap: ui.get_requested_lap(),
     };
     if let Err(error) = save_settings(path, &settings) {
         ui.set_status_text(format!("Unable to save settings: {error:#}").into());
@@ -301,6 +328,18 @@ fn wire_conversion(ui: &MainWindow, files: Rc<VecModel<TelemetryFile>>) {
             return;
         }
 
+        let export_mode = match ui.get_export_mode() {
+            1 => ExportMode::Combined,
+            2 => match u16::try_from(ui.get_requested_lap()) {
+                Ok(number) if number > 0 => ExportMode::SingleLap(number),
+                _ => {
+                    ui.set_status_text("Choose a valid lap number.".into());
+                    return;
+                }
+            },
+            _ => ExportMode::PerLap,
+        };
+
         ui.set_busy(true);
         ui.set_progress_value(0);
         ui.set_progress_max(i32::try_from(selected.len()).unwrap_or(i32::MAX));
@@ -325,7 +364,10 @@ fn wire_conversion(ui: &MainWindow, files: Rc<VecModel<TelemetryFile>>) {
                 let result = convert_file_with_progress(
                     &input,
                     &output,
-                    ConvertOptions::default(),
+                    ConvertOptions {
+                        export_mode,
+                        ..ConvertOptions::default()
+                    },
                     move |destination| {
                         let status = short_output_path(destination);
                         let weak_file_progress = weak_file_progress.clone();
@@ -337,9 +379,12 @@ fn wire_conversion(ui: &MainWindow, files: Rc<VecModel<TelemetryFile>>) {
                 );
                 let status = match &result {
                     Ok(summary) if summary.cancelled => {
-                        format!("Stopped · {} lap(s)", summary.generated_count)
+                        format!("Stopped · {} LD file(s)", summary.generated_count)
                     }
-                    Ok(summary) => format!("Completed · {} lap(s)", summary.generated_count),
+                    Ok(summary) => format!(
+                        "Completed · {} lap(s) in {} LD file(s)",
+                        summary.exported_lap_count, summary.generated_count
+                    ),
                     Err(error) => format!("Error · {error:#}"),
                 };
                 set_file_status(&weak_worker, model_index, &status);
@@ -557,6 +602,8 @@ mod tests {
         let expected = AppSettings {
             source_folder: PathBuf::from(r"C:\Telemetry LMU"),
             output_folder: PathBuf::from(r"D:\Exports MoTeC"),
+            export_mode: 2,
+            requested_lap: 7,
         };
 
         save_settings(&path, &expected).unwrap();
@@ -579,7 +626,25 @@ mod tests {
 
         assert_eq!(loaded.source_folder, PathBuf::from(r"C:\Telemetry LMU"));
         assert_eq!(loaded.output_folder, PathBuf::from(r"D:\Exports MoTeC"));
+        assert_eq!(loaded.export_mode, 0);
+        assert_eq!(loaded.requested_lap, 1);
         assert!(toml_path.is_file());
+    }
+
+    #[test]
+    fn older_toml_settings_receive_export_defaults() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("lmu2motec_config.toml");
+        std::fs::write(
+            &path,
+            "source_folder = 'C:\\Telemetry'\noutput_folder = 'C:\\Exports'\n",
+        )
+        .unwrap();
+
+        let loaded = load_settings(&path).unwrap();
+
+        assert_eq!(loaded.export_mode, 0);
+        assert_eq!(loaded.requested_lap, 1);
     }
 
     #[test]

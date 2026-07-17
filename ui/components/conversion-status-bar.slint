@@ -1,0 +1,61 @@
+import { Button, Spinner } from "std-widgets.slint";
+
+export component ConversionStatusBar inherits HorizontalLayout {
+    in property <string> status-text;
+    in property <bool> busy: false;
+    in property <bool> can-convert: false;
+    in property <int> progress-value: 0;
+    in property <int> progress-max: 0;
+
+    callback convert();
+    callback stop();
+
+    height: 44px;
+    spacing: 12px;
+
+    VerticalLayout {
+        spacing: 4px;
+
+        Text {
+            text: root.status-text;
+            color: #9badbd;
+            font-size: 12px;
+            overflow: elide;
+        }
+
+        Rectangle {
+            height: 5px;
+            border-radius: 3px;
+            background: #273542;
+
+            Rectangle {
+                x: 0px;
+                height: parent.height;
+                border-radius: 3px;
+                background: #48a6e8;
+                width: root.progress-max > 0
+                    ? parent.width * root.progress-value / root.progress-max
+                    : 0px;
+            }
+        }
+    }
+
+    Spinner {
+        width: 28px;
+        height: 28px;
+        visible: root.busy;
+    }
+
+    Button {
+        width: 190px;
+        text: root.busy ? "Stop" : "Convert selected";
+        enabled: root.busy || root.can-convert;
+        clicked => {
+            if (root.busy) {
+                root.stop();
+            } else {
+                root.convert();
+            }
+        }
+    }
+}
