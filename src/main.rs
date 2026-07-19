@@ -49,6 +49,11 @@ fn main() -> Result<()> {
             .as_ref()
             .map_or(1, |settings| settings.requested_lap.max(1)),
     );
+    ui.set_export_setup(
+        settings
+            .as_ref()
+            .is_some_and(|settings| settings.export_setup),
+    );
 
     wire_browse_source(&ui, files.clone(), settings_path.clone());
     wire_browse_output(&ui, settings_path.clone());
@@ -65,6 +70,7 @@ fn main() -> Result<()> {
         output_folder: PathBuf::from(ui.get_output_folder().as_str()),
         export_mode: ui.get_export_mode(),
         requested_lap: ui.get_requested_lap(),
+        export_setup: ui.get_export_setup(),
     };
     save_settings(&settings_path, &settings)?;
     Ok(())
@@ -78,6 +84,8 @@ struct AppSettings {
     export_mode: i32,
     #[serde(default = "default_requested_lap")]
     requested_lap: i32,
+    #[serde(default)]
+    export_setup: bool,
 }
 
 fn default_requested_lap() -> i32 {
@@ -115,6 +123,7 @@ fn load_legacy_settings(path: &Path) -> Option<AppSettings> {
         output_folder,
         export_mode: 1,
         requested_lap: 1,
+        export_setup: false,
     })
 }
 
@@ -133,6 +142,7 @@ fn save_current_settings(ui: &MainWindow, path: &Path) {
         output_folder: PathBuf::from(ui.get_output_folder().as_str()),
         export_mode: ui.get_export_mode(),
         requested_lap: ui.get_requested_lap(),
+        export_setup: ui.get_export_setup(),
     };
     if let Err(error) = save_settings(path, &settings) {
         ui.set_status_text(format!("Unable to save settings: {error:#}").into());
@@ -343,6 +353,7 @@ fn wire_conversion(ui: &MainWindow, files: Rc<VecModel<TelemetryFile>>) {
             },
             _ => ExportMode::PerLap,
         };
+        let export_setup = ui.get_export_setup();
 
         ui.set_busy(true);
         ui.set_progress_value(0);
@@ -370,6 +381,7 @@ fn wire_conversion(ui: &MainWindow, files: Rc<VecModel<TelemetryFile>>) {
                     &output,
                     ConvertOptions {
                         export_mode,
+                        export_setup,
                         ..ConvertOptions::default()
                     },
                     move |destination| {
@@ -386,8 +398,10 @@ fn wire_conversion(ui: &MainWindow, files: Rc<VecModel<TelemetryFile>>) {
                         format!("Stopped · {} LD file(s)", summary.generated_count)
                     }
                     Ok(summary) => format!(
-                        "Completed · {} lap(s) in {} LD file(s)",
-                        summary.exported_lap_count, summary.generated_count
+                        "Completed · {} lap(s) in {} LD file(s){}",
+                        summary.exported_lap_count,
+                        summary.generated_count,
+                        setup_status_suffix(summary.setup_exported, export_setup)
                     ),
                     Err(error) => format!("Error · {error:#}"),
                 };
@@ -405,8 +419,9 @@ fn wire_conversion(ui: &MainWindow, files: Rc<VecModel<TelemetryFile>>) {
                 let result_text = result
                     .map(|summary| {
                         format!(
-                            "{input_name} converted: {} LD file(s)",
-                            summary.generated_count
+                            "{input_name} converted: {} LD file(s){}",
+                            summary.generated_count,
+                            setup_status_suffix(summary.setup_exported, export_setup)
                         )
                     })
                     .unwrap_or_else(|error| format!("Failed to convert {input_name}: {error:#}"));
@@ -595,6 +610,16 @@ fn short_output_path(path: &Path) -> String {
         .unwrap_or(file)
 }
 
+fn setup_status_suffix(exported: bool, requested: bool) -> &'static str {
+    if exported {
+        " + setup SVM"
+    } else if requested {
+        " · no setup available"
+    } else {
+        ""
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -608,6 +633,7 @@ mod tests {
             output_folder: PathBuf::from(r"D:\Exports MoTeC"),
             export_mode: 2,
             requested_lap: 7,
+            export_setup: true,
         };
 
         save_settings(&path, &expected).unwrap();
@@ -632,6 +658,7 @@ mod tests {
         assert_eq!(loaded.output_folder, PathBuf::from(r"D:\Exports MoTeC"));
         assert_eq!(loaded.export_mode, 1);
         assert_eq!(loaded.requested_lap, 1);
+        assert!(!loaded.export_setup);
         assert!(toml_path.is_file());
     }
 
@@ -649,6 +676,7 @@ mod tests {
 
         assert_eq!(loaded.export_mode, 1);
         assert_eq!(loaded.requested_lap, 1);
+        assert!(!loaded.export_setup);
     }
 
     #[test]

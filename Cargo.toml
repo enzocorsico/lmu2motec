@@ -12,6 +12,7 @@ chrono = { version = "0.4", default-features = false, features = ["clock"] }
 duckdb = { version = "1.5.0", features = ["bundled"] }
 rfd = "0.17"
 serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 slint = "1.17"
 toml = "1.1"
 
