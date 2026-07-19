@@ -30,9 +30,10 @@ Each recording gets its own subfolder in the selected output folder. Depending
 on the selected mode, it contains one `.ld` file per lap, a single `.ld` file
 with all completed laps, or only the requested lap.
 
-Combined exports also include a small matching `.ldx` sidecar containing the
-lap beacons used by MoTeC i2 to split the single telemetry file into laps. Keep
-the `.ld` and `.ldx` files together when moving or sharing a combined export.
+Each `.ld` export includes a matching `.ldx` sidecar containing the event,
+venue and track length details used by MoTeC i2. Combined exports also store the
+lap beacons in this file so MoTeC can split the single telemetry file into laps.
+Keep each `.ld` and `.ldx` pair together when moving or sharing an export.
 
 When the setup option is enabled and the recording contains `CarSetup`
 metadata, a matching `.svm` file is created in the recording output folder. It

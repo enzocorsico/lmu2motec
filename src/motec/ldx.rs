@@ -5,10 +5,16 @@ use anyhow::{Context, Result};
 
 use crate::lmu::Lap;
 
-pub fn write_lap_markers(ld_path: &Path, laps: &[Lap]) -> Result<()> {
+pub fn write_ldx(
+    ld_path: &Path,
+    laps: &[Lap],
+    event: &str,
+    venue: &str,
+    venue_length_mm: Option<u32>,
+) -> Result<()> {
     let destination = ld_path.with_extension("ldx");
     let temporary = temporary_path(&destination);
-    let contents = lap_markers_xml(laps);
+    let contents = ldx_xml(laps, event, venue, venue_length_mm);
 
     if temporary.exists() {
         std::fs::remove_file(&temporary)
@@ -37,7 +43,7 @@ pub fn write_lap_markers(ld_path: &Path, laps: &[Lap]) -> Result<()> {
     result
 }
 
-fn lap_markers_xml(laps: &[Lap]) -> String {
+fn ldx_xml(laps: &[Lap], event: &str, venue: &str, venue_length_mm: Option<u32>) -> String {
     let mut xml = String::from(
         "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n\
          <LDXFile Version=\"1.6\" Locale=\"English\">\n\
@@ -68,7 +74,23 @@ fn lap_markers_xml(laps: &[Lap]) -> String {
          <RangeBlock/>\n\
          </Layer>\n\
          <Details>\n\
-         <String Id=\"Total Laps\" Value=\"{}\"/>\n\
+         <String Id=\"Event\" Value=\"{}\"/>\n\
+         <String Id=\"Venue\" Value=\"{}\"/>\n",
+        escape_xml_attribute(event),
+        escape_xml_attribute(venue)
+    )
+    .expect("writing to a string cannot fail");
+    if let Some(length) = venue_length_mm {
+        writeln!(
+            xml,
+            "<Numeric Id=\"Venue Length\" Value=\"{}\" Unit=\"m\" DPS=\"1\"/>",
+            metres_text(length)
+        )
+        .expect("writing to a string cannot fail");
+    }
+    write!(
+        xml,
+        "<String Id=\"Total Laps\" Value=\"{}\"/>\n\
          </Details>\n\
          </Layers>\n\
          </LDXFile>\n",
@@ -76,6 +98,27 @@ fn lap_markers_xml(laps: &[Lap]) -> String {
     )
     .expect("writing to a string cannot fail");
     xml
+}
+
+fn metres_text(millimetres: u32) -> String {
+    let metres = millimetres / 1_000;
+    let remainder = millimetres % 1_000;
+    if remainder == 0 {
+        metres.to_string()
+    } else {
+        format!("{metres}.{remainder:03}")
+            .trim_end_matches('0')
+            .to_owned()
+    }
+}
+
+fn escape_xml_attribute(value: &str) -> String {
+    value
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&apos;")
 }
 
 fn temporary_path(destination: &Path) -> PathBuf {
@@ -94,12 +137,34 @@ mod tests {
             lap(3, 230.5, 340.0),
         ];
 
-        let xml = lap_markers_xml(&laps);
+        let xml = ldx_xml(
+            &laps,
+            "Algarve International Circuit",
+            "Algarve International Circuit",
+            Some(4_653_000),
+        );
 
         assert!(xml.contains("Name=\"Manual.1\" Flags=\"77\" Time=\"100000000.000000\""));
         assert!(xml.contains("Name=\"Manual.2\" Flags=\"77\" Time=\"220500000.000000\""));
         assert!(xml.contains("Id=\"Total Laps\" Value=\"3\""));
+        assert!(xml.contains("<String Id=\"Event\" Value=\"Algarve International Circuit\"/>"));
+        assert!(xml.contains("<String Id=\"Venue\" Value=\"Algarve International Circuit\"/>"));
+        assert!(xml.contains("<Numeric Id=\"Venue Length\" Value=\"4653\" Unit=\"m\" DPS=\"1\"/>"));
         assert_eq!(xml.matches("ClassName=\"BCN\"").count(), 2);
+    }
+
+    #[test]
+    fn details_escape_xml_and_keep_sub_metre_precision() {
+        let xml = ldx_xml(
+            &[lap(1, 0.0, 1.0)],
+            "A & B",
+            "Test <Short>",
+            Some(4_653_125),
+        );
+
+        assert!(xml.contains("Value=\"A &amp; B\""));
+        assert!(xml.contains("Value=\"Test &lt;Short&gt;\""));
+        assert!(xml.contains("Value=\"4653.125\" Unit=\"m\" DPS=\"1\""));
     }
 
     fn lap(number: u16, start_ts: f64, end_ts: f64) -> Lap {
