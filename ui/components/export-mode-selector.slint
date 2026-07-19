@@ -5,6 +5,8 @@ export component ExportModeSelector inherits HorizontalLayout {
     in-out property <int> requested-lap: 1;
     in property <bool> busy: false;
 
+    callback settings-changed();
+
     height: 36px;
     spacing: 12px;
 
@@ -24,6 +26,7 @@ export component ExportModeSelector inherits HorizontalLayout {
             root.mode = self.current-index == 0 ? 1
                 : self.current-index == 1 ? 0
                 : 2;
+            root.settings-changed();
         }
     }
 
@@ -39,5 +42,9 @@ export component ExportModeSelector inherits HorizontalLayout {
         maximum: 9999;
         value <=> root.requested-lap;
         enabled: !root.busy && root.mode == 2;
+        edited(value) => {
+            root.requested-lap = value;
+            root.settings-changed();
+        }
     }
 }

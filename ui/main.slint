@@ -79,11 +79,13 @@ export component MainWindow inherits Window {
             mode <=> root.export-mode;
             requested-lap <=> root.requested-lap;
             busy: root.busy;
+            settings-changed => { root.save-settings(); }
         }
 
         SetupExportOption {
             export-setup <=> root.export-setup;
             busy: root.busy;
+            settings-changed => { root.save-settings(); }
         }
 
         ConversionStatusBar {
