@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result, bail};
 
 use crate::lmu::LmuDatabase;
-use crate::motec::{LdMetadata, LdWriter, validate_ld_file, write_lap_markers};
+use crate::motec::{LdMetadata, LdWriter, validate_ld_file, write_ldx};
 use crate::telemetry::{EventSampling, build_lap_session};
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -18,6 +18,7 @@ pub enum ExportMode {
 #[derive(Clone, Copy, Debug)]
 pub struct ConvertOptions {
     pub export_mode: ExportMode,
+    pub export_setup: bool,
     pub include_partial: bool,
     pub event_frequency: u16,
     pub validate: bool,
@@ -27,6 +28,7 @@ impl Default for ConvertOptions {
     fn default() -> Self {
         Self {
             export_mode: ExportMode::PerLap,
+            export_setup: false,
             include_partial: false,
             event_frequency: 100,
             validate: true,
@@ -38,6 +40,7 @@ impl Default for ConvertOptions {
 pub struct ConversionSummary {
     pub generated_count: usize,
     pub exported_lap_count: usize,
+    pub setup_exported: bool,
     pub cancelled: bool,
 }
 
@@ -100,6 +103,7 @@ pub fn convert_file_with_progress(
             return Ok(ConversionSummary {
                 generated_count: 0,
                 exported_lap_count: 0,
+                setup_exported: false,
                 cancelled: true,
             });
         }
@@ -118,13 +122,26 @@ pub fn convert_file_with_progress(
             complete: last.complete,
         };
         let session = build_lap_session(&database, &overview, &combined_lap, event_sampling)?;
-        let mut metadata = LdMetadata::from_lmu_laps(&overview.metadata, first.number, last.number);
-        metadata.venue_length_mm = venue_length_mm;
+        let metadata = LdMetadata::from_lmu_laps(&overview.metadata, first.number, last.number);
         write_ld_safely(&destination, &metadata, &session.channels, options.validate)?;
-        write_lap_markers(&destination, &laps)?;
+        write_ldx(
+            &destination,
+            &laps,
+            &metadata.event_name,
+            &metadata.venue,
+            venue_length_mm,
+        )?;
+        let setup_exported = export_setup_if_requested(
+            input,
+            output,
+            &overview.metadata,
+            options.export_setup,
+            &mut on_file_started,
+        )?;
         return Ok(ConversionSummary {
             generated_count: 1,
             exported_lap_count,
+            setup_exported,
             cancelled: false,
         });
     }
@@ -145,9 +162,15 @@ pub fn convert_file_with_progress(
         };
         on_file_started(&destination);
         let session = build_lap_session(&database, &overview, &lap, event_sampling)?;
-        let mut metadata = LdMetadata::from_lmu(&overview.metadata, lap.number);
-        metadata.venue_length_mm = venue_length_mm;
+        let metadata = LdMetadata::from_lmu(&overview.metadata, lap.number);
         write_ld_safely(&destination, &metadata, &session.channels, options.validate)?;
+        write_ldx(
+            &destination,
+            std::slice::from_ref(&lap),
+            &metadata.event_name,
+            &metadata.venue,
+            venue_length_mm,
+        )?;
         generated_count += 1;
 
         if laps.peek().is_some() && cancellation_requested() {
@@ -156,11 +179,55 @@ pub fn convert_file_with_progress(
         }
     }
 
+    let setup_exported = if cancelled {
+        false
+    } else {
+        export_setup_if_requested(
+            input,
+            output,
+            &overview.metadata,
+            options.export_setup,
+            &mut on_file_started,
+        )?
+    };
+
     Ok(ConversionSummary {
         generated_count,
         exported_lap_count: generated_count,
+        setup_exported,
         cancelled,
     })
+}
+
+fn export_setup_if_requested(
+    input: &Path,
+    output: &Path,
+    metadata: &crate::lmu::LmuMetadata,
+    requested: bool,
+    on_file_started: &mut impl FnMut(&Path),
+) -> Result<bool> {
+    if !requested || metadata.get("CarSetup").trim().is_empty() {
+        return Ok(false);
+    }
+    let destination = setup_output_path(input, output);
+    on_file_started(&destination);
+    crate::car_setup::export(metadata, &destination)
+}
+
+fn setup_output_path(input: &Path, output: &Path) -> PathBuf {
+    if output
+        .extension()
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("ld"))
+    {
+        return output.with_extension("svm");
+    }
+
+    let mut filename = input
+        .file_name()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("setup.duckdb"));
+    filename.set_extension("svm");
+    output.join(filename)
 }
 
 fn write_ld_safely(
@@ -252,7 +319,6 @@ mod tests {
             driver: String::new(),
             vehicle: String::new(),
             venue: String::new(),
-            venue_length_mm: None,
             short_comment: String::new(),
             event_name: String::new(),
             event_session: String::new(),

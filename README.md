@@ -23,15 +23,21 @@ source archives attached automatically to the same tagged release.
 3. Select one or more recordings from the list.
 4. Choose an output folder.
 5. Choose an export mode and, when needed, a lap number.
-6. Click **Convert selected**.
+6. Optionally enable the LMU car setup (`.svm`) export.
+7. Click **Convert selected**.
 
 Each recording gets its own subfolder in the selected output folder. Depending
 on the selected mode, it contains one `.ld` file per lap, a single `.ld` file
 with all completed laps, or only the requested lap.
 
-Combined exports also include a small matching `.ldx` sidecar containing the
-lap beacons used by MoTeC i2 to split the single telemetry file into laps. Keep
-the `.ld` and `.ldx` files together when moving or sharing a combined export.
+Each `.ld` export includes a matching `.ldx` sidecar containing the event,
+venue and track length details used by MoTeC i2. Combined exports also store the
+lap beacons in this file so MoTeC can split the single telemetry file into laps.
+Keep each `.ld` and `.ldx` pair together when moving or sharing an export.
+
+When the setup option is enabled and the recording contains `CarSetup`
+metadata, a matching `.svm` file is created in the recording output folder. It
+can be imported directly in LMU. This option is disabled by default.
 
 You can stop a conversion at any time. The current `.ld` file will be completed
 before the remaining laps are skipped.
@@ -54,6 +60,8 @@ Use time mode when viewing the current per-lap exports.
 - Invalidated LMU laps are currently exported like other completed laps.
 - All supported telemetry channels are exported automatically.
 - The application remembers the last selected source and output folders.
+- Car setup export is available only for recordings containing `CarSetup`
+  metadata.
 
 ## Licenses
 

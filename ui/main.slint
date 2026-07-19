@@ -3,6 +3,7 @@ import { AppHeader } from "components/app-header.slint";
 import { ConversionStatusBar } from "components/conversion-status-bar.slint";
 import { ExportModeSelector } from "components/export-mode-selector.slint";
 import { SourceFolderSelector } from "components/source-folder-selector.slint";
+import { SetupExportOption } from "components/setup-export-option.slint";
 import { TelemetryFileList } from "components/telemetry-file-list.slint";
 import { OutputFolderSelector } from "components/output-folder-selector.slint";
 
@@ -24,6 +25,7 @@ export component MainWindow inherits Window {
     in property <int> progress-max: 0;
     in-out property <int> export-mode: 1;
     in-out property <int> requested-lap: 1;
+    in-out property <bool> export-setup: false;
 
     callback browse-source();
     callback browse-output();
@@ -77,6 +79,13 @@ export component MainWindow inherits Window {
             mode <=> root.export-mode;
             requested-lap <=> root.requested-lap;
             busy: root.busy;
+            settings-changed => { root.save-settings(); }
+        }
+
+        SetupExportOption {
+            export-setup <=> root.export-setup;
+            busy: root.busy;
+            settings-changed => { root.save-settings(); }
         }
 
         ConversionStatusBar {

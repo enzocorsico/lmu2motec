@@ -51,28 +51,7 @@ impl LmuDatabase {
             return Ok(None);
         };
         let values = self.read_sampled_values(definition, column)?;
-        let frequency = f64::from(definition.frequency);
-        let mut lap_maxima = overview
-            .laps
-            .iter()
-            .filter(|lap| lap.complete)
-            .filter_map(|lap| {
-                let start = ((lap.start_ts - overview.recording_start) * frequency)
-                    .floor()
-                    .max(0.0) as usize;
-                let end = ((lap.end_ts - overview.recording_start) * frequency)
-                    .ceil()
-                    .max(0.0) as usize;
-                values[start.min(values.len())..end.min(values.len())]
-                    .iter()
-                    .flatten()
-                    .copied()
-                    .filter(|value| value.is_finite() && *value > 0.0)
-                    .reduce(f64::max)
-            })
-            .collect::<Vec<_>>();
-
-        Ok(median(&mut lap_maxima).and_then(metres_to_millimetres))
+        Ok(maximum_distance_mm(&values))
     }
 
     pub fn read_sampled_values(
@@ -229,17 +208,14 @@ impl LmuDatabase {
     }
 }
 
-fn median(values: &mut [f64]) -> Option<f64> {
-    if values.is_empty() {
-        return None;
-    }
-    values.sort_by(f64::total_cmp);
-    let middle = values.len() / 2;
-    Some(if values.len().is_multiple_of(2) {
-        (values[middle - 1] + values[middle]) / 2.0
-    } else {
-        values[middle]
-    })
+fn maximum_distance_mm(values: &[Option<f64>]) -> Option<u32> {
+    values
+        .iter()
+        .flatten()
+        .copied()
+        .filter(|value| value.is_finite() && *value > 0.0)
+        .reduce(f64::max)
+        .and_then(metres_to_millimetres)
 }
 
 fn metres_to_millimetres(metres: f64) -> Option<u32> {
@@ -282,11 +258,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn track_length_uses_median_and_converts_to_millimetres() {
-        let mut lap_maxima = vec![4_631.255, 4_626.599, 9_999.0, 4_629.773, 4_630.414];
+    fn track_length_uses_the_highest_lap_distance() {
+        let values = vec![
+            Some(0.0),
+            Some(4_631.255),
+            None,
+            Some(4_629.773),
+            Some(f64::NAN),
+        ];
 
-        let length = median(&mut lap_maxima).and_then(metres_to_millimetres);
-
-        assert_eq!(length, Some(4_630_414));
+        assert_eq!(maximum_distance_mm(&values), Some(4_631_255));
     }
 }

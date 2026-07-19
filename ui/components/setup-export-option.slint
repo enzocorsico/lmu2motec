@@ -1,0 +1,34 @@
+import { CheckBox } from "std-widgets.slint";
+
+export component SetupExportOption inherits HorizontalLayout {
+    in-out property <bool> export-setup: false;
+    in property <bool> busy: false;
+
+    callback settings-changed();
+
+    height: 36px;
+    spacing: 12px;
+
+    Text {
+        width: 120px;
+        text: "Additional files";
+        color: #d8e2eb;
+        vertical-alignment: center;
+    }
+
+    CheckBox {
+        width: 30px;
+        checked <=> root.export-setup;
+        enabled: !root.busy;
+        toggled => {
+            root.export-setup = self.checked;
+            root.settings-changed();
+        }
+    }
+
+    Text {
+        text: "Export the LMU car setup (.svm) when available";
+        color: #b8c6d3;
+        vertical-alignment: center;
+    }
+}
